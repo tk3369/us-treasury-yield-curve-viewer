@@ -129,7 +129,7 @@ app.get('/api/yield-curve', async (req, res) => {
     cachedData = await fetchAndParseCSV();
     cachedDates = extractDates(cachedData);
     console.log('Initial Treasury data download complete. Starting backend server...');
-    app.listen(PORT, () => {
+    app.listen(PORT, '0.0.0.0', () => {
       console.log(`Backend listening on port ${PORT}`);
     });
   } catch (err) {
@@ -137,4 +137,3 @@ app.get('/api/yield-curve', async (req, res) => {
     process.exit(1);
   }
 })();
-
