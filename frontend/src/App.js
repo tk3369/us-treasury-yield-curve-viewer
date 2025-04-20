@@ -141,8 +141,6 @@ function App() {
     !/^1\.5\s*(mo|month)$/i.test(pt.maturity.trim()) &&
     !/^1\s*yr$/i.test(pt.maturity.trim())
   );
-  console.log("filtered curve");
-  console.log(filteredCurve);
 
   const chartData = {
     datasets: [
