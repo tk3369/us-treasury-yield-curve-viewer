@@ -26,6 +26,11 @@ function makeCsvUrl(yyyymm) {
 }
 
 
+function logWithTimestamp(...args) {
+  const ts = new Date().toISOString();
+  console.log(`[${ts}]`, ...args);
+}
+
 const app = express();
 app.use(helmet());
 let lastRateLimitLog = 0;
@@ -38,7 +43,7 @@ const limiter = rateLimit({
     const now = Date.now();
     if (now - lastRateLimitLog > 60 * 1000) {
       lastRateLimitLog = now;
-      console.warn(`[${new Date().toISOString()}] Rate limit exceeded for IP: ${req.ip}`);
+      logWithTimestamp(`Rate limit exceeded for IP: ${req.ip}`);
     }
     res.status(429).json({ message: "Too many requests, please try again later." });
   }
@@ -51,7 +56,7 @@ app.use(cors({
 let cachedData = null;
 let cachedDates = null;
 
-async function fetchAndParseCSV() {
+export async function fetchAndParseCSV(force = false) {
   const months = getAllMonths();
   console.log('Fetching CSVs for months:', months.join(', '));
   const fetches = months.map(ym =>
@@ -143,18 +148,20 @@ app.get('/api/yield-curve', async (req, res) => {
   }
 });
 
-// Fetch and cache data, then start server only when ready
+import { scheduleCsvRefresh } from './scheduler.js';
+
 (async () => {
   try {
-    console.log('Starting initial Treasury data download...');
-    cachedData = await fetchAndParseCSV();
+    cachedData = await fetchAndParseCSV(true); // always fetch fresh data on startup
     cachedDates = extractDates(cachedData);
     console.log('Initial Treasury data download complete. Starting backend server...');
+    // Start the scheduler
+    scheduleCsvRefresh();
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`Backend listening on port ${PORT}`);
     });
   } catch (err) {
-    console.error('Initial Treasury data download failed:', err);
+    console.error('Failed to initialize Treasury data:', err);
     process.exit(1);
   }
 })();
