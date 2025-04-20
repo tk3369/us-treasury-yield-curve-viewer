@@ -2,6 +2,8 @@ import express from 'express';
 import fetch from 'node-fetch';
 import { parse } from 'csv-parse/sync';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 
 const PORT = 4000;
 // Helper to generate all months from Jan 2025 to now (inclusive)
@@ -11,7 +13,7 @@ function getAllMonths() {
   const months = [];
   let y = start.getFullYear(), m = start.getMonth();
   while (y < now.getFullYear() || (y === now.getFullYear() && m <= now.getMonth())) {
-    const ym = `${y}${(m+1).toString().padStart(2,'0')}`;
+    const ym = `${y}${(m + 1).toString().padStart(2, '0')}`;
     months.push(ym);
     m++;
     if (m > 11) { m = 0; y++; }
@@ -25,7 +27,25 @@ function makeCsvUrl(yyyymm) {
 
 
 const app = express();
-app.use(cors());
+app.use(helmet());
+let lastRateLimitLog = 0;
+const corsLocation = process.env.REACT_APP_YIELD_CURVE_APP_API_BASE ? "http://ahsmart.com" : "http://localhost:3000";
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  handler: function (req, res, next) {
+    const now = Date.now();
+    if (now - lastRateLimitLog > 60 * 1000) {
+      lastRateLimitLog = now;
+      console.warn(`[${new Date().toISOString()}] Rate limit exceeded for IP: ${req.ip}`);
+    }
+    res.status(429).json({ message: "Too many requests, please try again later." });
+  }
+});
+app.use(limiter);
+app.use(cors({
+  origin: corsLocation
+}));
 
 let cachedData = null;
 let cachedDates = null;
