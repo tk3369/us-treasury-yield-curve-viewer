@@ -38,7 +38,7 @@ const host = process.env.REACT_APP_YIELD_CURVE_APP_API_BASE ? "ahsmart.com" : "l
 const corsLocation = `http://${host}:3000`;
 const limiter = rateLimit({
   windowMs: 60 * 1000, 
-  max: 100, 
+  max: 100, // QPS per IP address
   handler: function (req, res, next) {
     const now = Date.now();
     if (now - lastRateLimitLog > 60 * 1000) {
