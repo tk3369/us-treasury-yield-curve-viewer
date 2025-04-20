@@ -29,7 +29,8 @@ function makeCsvUrl(yyyymm) {
 const app = express();
 app.use(helmet());
 let lastRateLimitLog = 0;
-const corsLocation = process.env.REACT_APP_YIELD_CURVE_APP_API_BASE ? "http://ahsmart.com" : "http://localhost:3000";
+const host = process.env.REACT_APP_YIELD_CURVE_APP_API_BASE ? "ahsmart.com" : "localhost";
+const corsLocation = `http://${host}:3000`;
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // limit each IP to 100 requests per windowMs
