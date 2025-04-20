@@ -38,6 +38,11 @@ function App() {
   const [error, setError] = useState('');
   const [animating, setAnimating] = useState(false);
 
+  // For time series chart
+  const [allCurveData, setAllCurveData] = useState([]);
+  const [selectedMaturity, setSelectedMaturity] = useState('');
+  const [timeSeriesData, setTimeSeriesData] = useState([]);
+
   // Animate through all dates
   async function animateCurve() {
     if (dates.length === 0) return;
@@ -126,6 +131,22 @@ function App() {
       });
   }, [selectedDate, dates]);
 
+  // Fetch all historical yield curve data
+  useEffect(() => {
+    async function fetchAllCurves() {
+      try {
+        const res = await fetch(`${API_BASE}/yield-curves`);
+        const json = await res.json();
+        if (!json.data || !Array.isArray(json.data)) throw new Error('No curve data');
+        setAllCurveData(json.data);
+      } catch (err) {
+        setError('Failed to fetch all yield curve data');
+        console.error('API fetch error:', err);
+      }
+    }
+    fetchAllCurves();
+  }, []);
+
   // Helper to convert maturity label to months and to date
   function maturityToMonths(label) {
     const mo = label.match(/([\d.]+)\s*Mo/i);
@@ -152,6 +173,44 @@ function App() {
     !/^1\.5\s*(mo|month)$/i.test(pt.maturity.trim()) &&
     !/^1\s*yr$/i.test(pt.maturity.trim())
   );
+
+  // Handle click on a point in the top chart
+  const handleTopChartClick = (event, elements) => {
+    console.log('Chart clicked', { event, elements });
+    if (!elements || elements.length === 0) {
+      console.log('No elements clicked');
+      return;
+    }
+    const idx = elements[0].index;
+    const clicked = filteredCurve[idx];
+    if (!clicked) {
+      console.log('No data point found at index', idx);
+      return;
+    }
+    
+    console.log('Clicked maturity:', clicked.maturity);
+    setSelectedMaturity(clicked.maturity);
+    
+    // Filter and format the time series data for the selected maturity
+    const series = allCurveData
+      .filter(row => row[clicked.maturity] && row[clicked.maturity].trim() !== '')
+      .map(row => {
+        let d = row['Date'];
+        if (/\d{2}\/\d{2}\/\d{4}/.test(d)) { // Handle MM/DD/YYYY format
+          const [mm, dd, yyyy] = d.split('/');
+          d = `${yyyy}-${mm.padStart(2,'0')}-${dd.padStart(2,'0')}`;
+        }
+        return {
+          date: d,
+          rate: parseFloat(row[clicked.maturity])
+        };
+      })
+      .filter(pt => !isNaN(pt.rate))
+      .sort((a, b) => new Date(a.date) - new Date(b.date)); // Ensure chronological order
+      
+    console.log('Filtered time series data:', series);
+    setTimeSeriesData(series);
+  };
 
   const chartData = {
     datasets: [
@@ -215,56 +274,101 @@ function App() {
       {loading && !animating ? (
         <div>Loading chart...</div>
       ) : (
-        <Line data={chartData} options={{
-          responsive: true,
-          animation: animating ? false : undefined,
-          plugins: {
-            legend: { display: false },
-            title: { display: false },
-            tooltip: {
-              callbacks: { title: items => items[0].raw.maturity, label: item => `Rate: ${item.raw.y}` }
-            }
-          },
-          scales: {
-            x: {
-              type: 'time',
-              time: { unit: 'month', displayFormats: { month: 'MMM yyyy' } },
-              title: { display: true, text: 'Maturity', font: { size: 14 } },
-              ticks: {
-                source: 'data',
-                autoSkip: false,
-                callback: function(val) {
-                  const match = chartData.datasets[0].data.find(d => d.x.getTime() === new Date(val).getTime());
-                  return match ? match.maturity : '';
-                },
-                minRotation: 45,
-                maxRotation: 45
-              },
-              grid: {
-                display: true,
-                drawTicks: true,  
-                borderColor: "transparent", //horizontal line color above ticks (x-axis)
-                color: "transparent",   //grid lines color
-                tickColor: "#868e96"  //ticks color (little line above points)
-              },
-              min: new Date(2000, 0, 1),
-              max: maturityToDate(filteredCurve[filteredCurve.length-1]?.maturity || '' )
+        <Line 
+          data={chartData} 
+          options={{
+            responsive: true,
+            animation: animating ? false : undefined,
+            onClick: handleTopChartClick,
+            plugins: {
+              legend: { display: false },
+              title: { display: false },
+              tooltip: {
+                callbacks: { title: items => items[0].raw.maturity, label: item => `Rate: ${item.raw.y}` }
+              }
             },
-            y: {
-              beginAtZero: true,
-              min: 0,
-              max: 8.0,
-              title: { display: true, text: 'Treasury Par Rate', font: { size: 14 } },
-              grid: {
-                display: true,
-                drawTicks: true,  
-                borderColor: "transparent", //horizontal line color above ticks (x-axis)
-                color: "transparent",   //grid lines color
-                tickColor: "#868e96"  //ticks color (little line above points)
+            scales: {
+              x: {
+                type: 'time',
+                time: { unit: 'month', displayFormats: { month: 'MMM yyyy' } },
+                title: { display: true, text: 'Maturity', font: { size: 14 } },
+                ticks: {
+                  source: 'data',
+                  autoSkip: false,
+                  callback: function(val) {
+                    const match = chartData.datasets[0].data.find(d => d.x.getTime() === new Date(val).getTime());
+                    return match ? match.maturity : '';
+                  },
+                  minRotation: 45,
+                  maxRotation: 45
+                },
+                grid: {
+                  display: true,
+                  drawTicks: true,  
+                  borderColor: "transparent", //horizontal line color above ticks (x-axis)
+                  color: "transparent",   //grid lines color
+                  tickColor: "#868e96"  //ticks color (little line above points)
+                },
+                min: new Date(2000, 0, 1),
+                max: maturityToDate(filteredCurve[filteredCurve.length-1]?.maturity || '' )
               },
-            }
-          }
-        }} />
+              y: {
+                beginAtZero: true,
+                min: 0,
+                max: 8.0,
+                title: { display: true, text: 'Treasury Par Rate', font: { size: 14 } },
+                grid: {
+                  display: true,
+                  drawTicks: true,  
+                  borderColor: "transparent", //horizontal line color above ticks (x-axis)
+                  color: "transparent",   //grid lines color
+                  tickColor: "#868e96"  //ticks color (little line above points)
+                },
+              }
+            },
+            onClick: handleTopChartClick
+          }} 
+        />
+      )}
+      {selectedMaturity && timeSeriesData.length > 0 && (
+        <div style={{ marginTop: 48 }}>
+          <h3>Time Series: {selectedMaturity}</h3>
+          <Line
+            data={{
+              labels: timeSeriesData.map(pt => pt.date),
+              datasets: [{
+                label: `${selectedMaturity} Rate`,
+                data: timeSeriesData.map(pt => pt.rate),
+                borderColor: 'rgb(75, 192, 192)',
+                fill: false,
+                pointRadius: 0,
+              }]
+            }}
+            options={{
+              responsive: true,
+              plugins: {
+                legend: { display: false },
+                title: { display: false },
+                tooltip: {
+                  callbacks: {
+                    label: item => `Rate: ${item.raw}`
+                  }
+                }
+              },
+              scales: {
+                x: {
+                  type: 'time',
+                  time: { unit: 'month', displayFormats: { month: 'MMM yyyy' } },
+                  title: { display: true, text: 'Date' }
+                },
+                y: {
+                  beginAtZero: true,
+                  title: { display: true, text: 'Treasury Par Rate (%)' }
+                }
+              }
+            }}
+          />
+        </div>
       )}
     </div>
   );

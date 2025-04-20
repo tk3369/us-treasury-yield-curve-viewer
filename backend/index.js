@@ -156,6 +156,24 @@ app.get('/api/yield-curve', async (req, res) => {
   }
 });
 
+// Endpoint to get all yield curve data
+app.get('/api/yield-curves', async (req, res) => {
+  try {
+    if (!cachedData) cachedData = await fetchAndParseCSV();
+    if (!cachedDates) cachedDates = extractDates(cachedData);
+    if (!cachedData || cachedData.length === 0) {
+      throw new Error('No yield curve data available');
+    }
+    res.json({ 
+      data: cachedData,
+      dates: cachedDates 
+    });
+  } catch (err) {
+    console.error('Error in /api/yield-curves:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 import { scheduleCsvRefresh } from './scheduler.js';
 
 (async () => {
