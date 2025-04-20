@@ -24,7 +24,7 @@ ChartJS.register(
   TimeScale
 );
 
-const API_BASE = process.env.YIELD_CURVE_APP_API_BASE || 'http://localhost:4000/api';
+const API_BASE = process.env.REACT_APP_YIELD_CURVE_APP_API_BASE || 'http://localhost:4000/api';
 
 const ANIMATION_DELAY = 100;
 
