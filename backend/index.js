@@ -37,8 +37,8 @@ let lastRateLimitLog = 0;
 const host = process.env.REACT_APP_YIELD_CURVE_APP_API_BASE ? "ahsmart.com" : "localhost";
 const corsLocation = `http://${host}:3000`;
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  windowMs: 60 * 1000, 
+  max: 100, 
   handler: function (req, res, next) {
     const now = Date.now();
     if (now - lastRateLimitLog > 60 * 1000) {
@@ -52,6 +52,14 @@ app.use(limiter);
 app.use(cors({
   origin: corsLocation
 }));
+
+// Enable browser caching for API responses (5 minutes)
+app.use('/api', (req, res, next) => {
+  if (req.method === 'GET') {
+    res.set('Cache-Control', 'public, max-age=300, must-revalidate');
+  }
+  next();
+});
 
 let cachedData = null;
 let cachedDates = null;
