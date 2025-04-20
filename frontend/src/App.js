@@ -41,11 +41,22 @@ function App() {
   // Animate through all dates
   async function animateCurve() {
     if (dates.length === 0) return;
-    // Sort dates ascending for animation
-    const sortedDates = [...dates].sort();
+    // Get today's date and date 60 days ago
+    const today = new Date();
+    const sixtyDaysAgo = new Date(today);
+    sixtyDaysAgo.setDate(today.getDate() - 60);
+
+    // Filter dates to only those within the last 60 days
+    const filteredDates = [...dates]
+      .sort()
+      .filter(d => {
+        const dateObj = new Date(d);
+        return dateObj >= sixtyDaysAgo && dateObj <= today;
+      });
+
     setAnimating(true);
-    for (let i = 0; i < sortedDates.length; i++) {
-      setSelectedDate(sortedDates[i]);
+    for (let i = 0; i < filteredDates.length; i++) {
+      setSelectedDate(filteredDates[i]);
       await new Promise(res => setTimeout(res, ANIMATION_DELAY));
     }
     setAnimating(false);
