@@ -26,6 +26,10 @@ function makeCsvUrl(yyyymm) {
 }
 
 
+function isProductionMode() {
+  return Boolean(process.env.REACT_APP_YIELD_CURVE_APP_API_BASE);
+}
+
 function logWithTimestamp(...args) {
   const ts = new Date().toISOString();
   console.log(`[${ts}]`, ...args);
@@ -39,7 +43,7 @@ app.use((req, res, next) => {
   next();
 });
 let lastRateLimitLog = 0;
-const host = process.env.REACT_APP_YIELD_CURVE_APP_API_BASE ? "ahsmart.com" : "localhost";
+const host = isProductionMode() ? "ahsmart.com" : "localhost";
 const corsLocation = `http://${host}:3000`;
 const limiter = rateLimit({
   windowMs: 60 * 1000, 
@@ -71,7 +75,7 @@ let cachedDates = null;
 
 export async function fetchAndParseCSV(force = false) {
   const months = getAllMonths();
-  console.log('Fetching CSVs for months:', months.join(', '));
+  logWithTimestamp('Fetching CSVs for months:', months.join(', '));
   const fetches = months.map(ym =>
     fetch(makeCsvUrl(ym))
       .then(res => {
@@ -93,7 +97,7 @@ export async function fetchAndParseCSV(force = false) {
   if (!allRecords || allRecords.length === 0) {
     throw new Error('Parsed CSVs are empty.');
   }
-  console.log('All CSVs parsed. Total records:', allRecords.length);
+  logWithTimestamp('All CSVs parsed. Total records: ' + allRecords.length);
   return allRecords;
 }
 
@@ -182,17 +186,18 @@ app.get('/api/yield-curves', async (req, res) => {
 import { scheduleCsvRefresh } from './scheduler.js';
 
 (async () => {
+  logWithTimestamp('isProductionMode=' + isProductionMode())
   try {
     cachedData = await fetchAndParseCSV(true); // always fetch fresh data on startup
     cachedDates = extractDates(cachedData);
-    console.log('Initial Treasury data download complete. Starting backend server...');
+    logWithTimestamp('Initial Treasury data download complete. Starting backend server...');
     // Start the scheduler
     scheduleCsvRefresh();
     app.listen(PORT, '0.0.0.0', () => {
-      console.log(`Backend listening on port ${PORT}`);
+      logWithTimestamp(`Backend listening on port ${PORT}`);
     });
   } catch (err) {
-    console.error('Failed to initialize Treasury data:', err);
+    logWithTimestamp('Failed to initialize Treasury data: ' + err);
     process.exit(1);
   }
 })();
