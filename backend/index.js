@@ -33,6 +33,11 @@ function logWithTimestamp(...args) {
 
 const app = express();
 app.use(helmet());
+// Log every request
+app.use((req, res, next) => {
+  logWithTimestamp(`Request: ${req.method} ${req.originalUrl} from ${req.ip}`);
+  next();
+});
 let lastRateLimitLog = 0;
 const host = process.env.REACT_APP_YIELD_CURVE_APP_API_BASE ? "ahsmart.com" : "localhost";
 const corsLocation = `http://${host}:3000`;
