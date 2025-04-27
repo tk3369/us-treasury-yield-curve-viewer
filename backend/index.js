@@ -126,9 +126,12 @@ app.get('/api/debug-csv', async (req, res) => {
 
 // Endpoint to get available dates
 app.get('/api/dates', async (req, res) => {
+  // Override caching and force fresh data on each call to dates endpoint
+  res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
   try {
-    if (!cachedData) cachedData = await fetchAndParseCSV();
-    if (!cachedDates) cachedDates = extractDates(cachedData);
+    // Force refresh of CSV data and extract dates
+    cachedData = await fetchAndParseCSV();
+    cachedDates = extractDates(cachedData);
     if (!cachedDates || cachedDates.length === 0) {
       throw new Error('No dates found in CSV.');
     }
