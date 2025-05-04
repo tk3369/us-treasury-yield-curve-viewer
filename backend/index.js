@@ -73,7 +73,7 @@ app.use('/api', (req, res, next) => {
 let cachedData = null;
 let cachedDates = null;
 
-export async function fetchAndParseCSV(force = false) {
+export async function fetchAndParseCSV() {
   const months = getAllMonths();
   logWithTimestamp('Fetching CSVs for months:', months.join(', '));
   const fetches = months.map(ym =>
@@ -183,15 +183,23 @@ app.get('/api/yield-curves', async (req, res) => {
   }
 });
 
-import { scheduleCsvRefresh } from './scheduler.js';
+function scheduleCsvRefresh() {
+  setInterval(async () => {
+    try {
+      logWithTimestamp('Scheduled: Refreshing Treasury CSV data...');
+      cachedData = await fetchAndParseCSV();
+      logWithTimestamp('Treasury CSV data refreshed.');
+    } catch (err) {
+      errorWithTimestamp('Error refreshing Treasury CSV data:', err);
+    }
+  }, 60 * 60 * 1000); // every hour
+}
 
 (async () => {
   logWithTimestamp('isProductionMode=' + isProductionMode())
   try {
-    cachedData = await fetchAndParseCSV(true); // always fetch fresh data on startup
-    cachedDates = extractDates(cachedData);
+    cachedData = await fetchAndParseCSV();
     logWithTimestamp('Initial Treasury data download complete. Starting backend server...');
-    // Start the scheduler
     scheduleCsvRefresh();
     app.listen(PORT, '0.0.0.0', () => {
       logWithTimestamp(`Backend listening on port ${PORT}`);
